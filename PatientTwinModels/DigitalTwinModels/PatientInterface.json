@@ -1,0 +1,50 @@
+{
+  "@id": "dtmi:patientdt:Patient;1",
+  "@type": "Interface",
+  "displayName": "Patient - Interface Model",
+  "@context": "dtmi:dtdl:context;2",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "patientId",
+      "schema": "integer",
+      "displayName": "Patient ID",
+      "description": "Unique Id of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "patientName",
+      "schema": "string",
+      "displayName": "Patient Name",
+      "description": "Name of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "heriditaryDiabetes",
+      "schema": "boolean",
+      "displayName": "Heridetary Diabetes",
+      "description": "Heridetary Diabetes info of patient",
+      "writable": true
+    },
+    {
+      "@type": "Relationship",
+      "name": "sends",
+      "displayName": "sends",
+      "target": "dtmi:patientdt:CGMInfo;1"
+    },
+    {
+      "@type": "Relationship",
+      "name": "feeds",
+      "displayName": "feeds",
+      "target": "dtmi:patientdt:HealthAppInfo;1"
+    },
+    {
+      "@type": "Relationship",
+      "name": "describes",
+      "displayName": "describes",
+      "target": "dtmi:patientdt:SurveyInfo;1"
+    }
+  ]
+}

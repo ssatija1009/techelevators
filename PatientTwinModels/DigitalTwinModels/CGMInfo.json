@@ -1,0 +1,24 @@
+{
+  "@id": "dtmi:patientdt:CGMInfo;1",
+  "@type": "Interface",
+  "displayName": "CGM Information",
+  "@context": "dtmi:dtdl:context;2",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "glucoseLevel",
+      "schema": "double",
+      "displayName": "Blood Glucose Level",
+      "description": "Blood Glucose Level of Patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "timestamp",
+      "schema": "dateTime",
+      "displayName": "Timestamp",
+      "description": "Timestamp of blood glucose level recorded",
+      "writable": true
+    }
+  ]
+}

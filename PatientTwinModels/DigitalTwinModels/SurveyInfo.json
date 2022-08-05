@@ -1,0 +1,202 @@
+{
+  "@id": "dtmi:patientdt:SurveyInfo;1",
+  "@type": "Interface",
+  "displayName": "Survey Information",
+  "@context": "dtmi:dtdl:context;2",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "visionStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "yes_trouble_with_focus",
+            "displayName": "Yes, seems to have trouble with my focus",
+            "enumValue": 0
+          },
+          {
+            "name": "yes_floaters_inline_vision",
+            "displayName": "Yes, I see floaters in my line of vision",
+            "enumValue": 1
+          },
+          {
+            "name": "yes_eyesight_blurry",
+            "displayName": "Yes, my eyesight is blurry",
+            "enumValue": 2
+          },
+          {
+            "name": "no",
+            "displayName": "No, my eyes are fine",
+            "enumValue": 3
+          }
+        ]
+      },
+      "displayName": "Vision Status",
+      "description": "Vision Status of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "fatigueStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "no_feeling_same",
+            "displayName": "No, I'm feeling same as always",
+            "enumValue": 0
+          },
+          {
+            "name": "yes_little_exhausted",
+            "displayName": "Yes, I'm exhausted",
+            "enumValue": 1
+          },
+          {
+            "name": "yes_more_tired_than_ususal",
+            "displayName": "I'm more tired than usual",
+            "enumValue": 2
+          }
+        ]
+      },
+      "displayName": "Fatigue Status",
+      "description": "Fatigue Status of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "sleepHours",
+      "schema": "integer",
+      "displayName": "Sleep Hours",
+      "description": "Sleep Hours of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "waterConsumptionStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "yes",
+            "displayName": "Yes",
+            "enumValue": 0
+          },
+          {
+            "name": "no",
+            "displayName": "No",
+            "enumValue": 1
+          }
+        ]
+      },
+      "displayName": "Water Consumption Status",
+      "description": "Water Consumption Status of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "urinationStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "yes",
+            "displayName": "Yes, I see to go a lot more than ususal",
+            "enumValue": 0
+          },
+          {
+            "name": "no",
+            "displayName": "No, I don't think so",
+            "enumValue": 1
+          }
+        ]
+      },
+      "displayName": "Urination Status",
+      "description": "Urination Status of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "cutsHealingStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "yes_taking_longer",
+            "displayName": "Yes, they seems to be taking longer",
+            "enumValue": 0
+          },
+          {
+            "name": "no",
+            "displayName": "No, I don't think so",
+            "enumValue": 1
+          }
+        ]
+      },
+      "displayName": "Cuts Healing Status",
+      "description": "Cuts Healing Status of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "tinglingSensationStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "yes_frequently",
+            "displayName": "Yes, frequently",
+            "enumValue": 0
+          },
+          {
+            "name": "yes_once_twice",
+            "displayName": "Yes, once or twice",
+            "enumValue": 1
+          },
+          {
+            "name": "no",
+            "displayName": "No",
+            "enumValue": 2
+          }
+        ]
+      },
+      "displayName": "Tingling Sensation",
+      "description": "Tingling Sensation Status of patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "weightStatus",
+      "schema": {
+        "@type": "Enum",
+        "valueSchema": "integer",
+        "enumValues": [
+          {
+            "name": "yes_weight_gain",
+            "displayName": "Yes, I'm having weight gain",
+            "enumValue": 0
+          },
+          {
+            "name": "yes_weight_loss",
+            "displayName": "Yes, I'm facing weight loss",
+            "enumValue": 1
+          },
+          {
+            "name": "no",
+            "displayName": "No, I'm not facing any change",
+            "enumValue": 2
+          }
+        ]
+      },
+      "displayName": "Weight Status",
+      "description": "Weight Status of patient",
+      "writable": true
+    }
+  ]
+}

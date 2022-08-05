@@ -1,0 +1,72 @@
+{
+  "@id": "dtmi:patientdt:HealthAppInfo;1",
+  "@type": "Interface",
+  "displayName": "Health Application Information",
+  "@context": "dtmi:dtdl:context;2",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "systolicBP",
+      "schema": "integer",
+      "displayName": "Systolic Blood Pressure",
+      "description": "Systolic Blood Pressure of Patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "diastolicBP",
+      "schema": "integer",
+      "displayName": "Diastolic Blood Pressure",
+      "description": "Diastolic Blood Pressure of Patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "bloodOxygen",
+      "schema": "double",
+      "displayName": "Blood Oxygen Levels",
+      "description": "Blood Oxygen Levels of Patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "bmi",
+      "schema": "double",
+      "displayName": "BMI",
+      "description": "BMI of Patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "dietarySugar",
+      "schema": "double",
+      "displayName": "Dietary Sugar",
+      "description": "Dietary Sugar of Patient",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "steps",
+      "schema": "integer",
+      "displayName": "Step Count",
+      "description": "Step Count",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "weight",
+      "schema": "double",
+      "displayName": "Weight",
+      "description": "Body Weight",
+      "writable": true
+    },
+    {
+      "@type": "Property",
+      "name": "height",
+      "schema": "double",
+      "displayName": "Height",
+      "description": "Height",
+      "writable": true
+    }
+  ]
+}

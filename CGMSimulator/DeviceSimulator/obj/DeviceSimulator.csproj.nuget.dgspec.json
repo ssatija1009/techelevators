@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "restore": {
+    "/Users/sahilshome/Hackathon2022/TechElevators/CGMSimulator/DeviceSimulator/DeviceSimulator.csproj": {}
+  },
+  "projects": {
+    "/Users/sahilshome/Hackathon2022/TechElevators/CGMSimulator/DeviceSimulator/DeviceSimulator.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/Users/sahilshome/Hackathon2022/TechElevators/CGMSimulator/DeviceSimulator/DeviceSimulator.csproj",
+        "projectName": "DeviceSimulator",
+        "projectPath": "/Users/sahilshome/Hackathon2022/TechElevators/CGMSimulator/DeviceSimulator/DeviceSimulator.csproj",
+        "packagesPath": "/Users/sahilshome/.nuget/packages/",
+        "outputPath": "/Users/sahilshome/Hackathon2022/TechElevators/CGMSimulator/DeviceSimulator/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/Users/sahilshome/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "netcoreapp3.1"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {},
+          "https://pkgs.dev.azure.com/itsnational/_packaging/Main%40Local/nuget/v3/index.json": {}
+        },
+        "frameworks": {
+          "netcoreapp3.1": {
+            "targetAlias": "netcoreapp3.1",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        }
+      },
+      "frameworks": {
+        "netcoreapp3.1": {
+          "targetAlias": "netcoreapp3.1",
+          "dependencies": {
+            "Azure.Messaging.EventHubs": {
+              "target": "Package",
+              "version": "[5.4.1, )"
+            },
+            "CsvHelper": {
+              "target": "Package",
+              "version": "[28.0.1, )"
+            },
+            "Microsoft.Azure.Devices": {
+              "target": "Package",
+              "version": "[1.34.0, )"
+            },
+            "Microsoft.Azure.Devices.Client": {
+              "target": "Package",
+              "version": "[1.37.2, )"
+            },
+            "System.Text.Json": {
+              "target": "Package",
+              "version": "[5.0.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[3.1.10, 3.1.10]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Host.osx-x64",
+              "version": "[3.1.27, 3.1.27]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[3.1.0, 3.1.0]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/6.0.302/RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
