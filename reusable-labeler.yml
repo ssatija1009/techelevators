@@ -1,0 +1,45 @@
+# File: .github/workflows/reusable-labeler.yml
+# This reusable workflow handles the initial labeling of a deployment issue.
+
+name: Reusable Issue Labeler
+
+on:
+  workflow_call:
+    inputs:
+      issue-body:
+        required: true
+        type: string
+      issue-number:
+        required: true
+        type: number
+    secrets:
+      GH_TOKEN:
+        required: true
+
+jobs:
+  add-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract details from issue body
+        id: extract_details
+        run: |
+          RELEASE_NUMBER=$(echo "${{ inputs.issue-body }}" | grep -oP '(?<=Release Number: ).*' | tr -d '\r')
+          CHANGE_TICKET=$(echo "${{ inputs.issue-body }}" | grep -oP '(?<=Change Ticket Number: ).*' | tr -d '\r')
+
+          if [ -z "$RELEASE_NUMBER" ]; then
+            gh issue comment ${{ inputs.issue-number }} --body "❌ **Error:** A 'Release Number' must be provided in the issue description."
+            exit 1
+          fi
+          echo "release_number=${RELEASE_NUMBER}" >> $GITHUB_OUTPUT
+          echo "change_ticket=${CHANGE_TICKET}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Add release and change ticket labels
+        uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GH_TOKEN }}"
+          issue-number: ${{ inputs.issue-number }}
+          labels: |
+            release-${{ steps.extract_details.outputs.release_number }}
+            ${{ steps.extract_details.outputs.change_ticket != '' && format('change-ticket-{0}', steps.extract_details.outputs.change_ticket) || '' }}
