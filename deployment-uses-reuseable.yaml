@@ -1,0 +1,35 @@
+# File: .github/workflows/deployment.yml
+# This is the ONLY file you need in your application repositories.
+
+name: Handle Deployment Lifecycle
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  # This job runs ONLY when an issue is opened.
+  # It calls the reusable workflow responsible for adding labels.
+  call-labeler:
+    if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'deployment')
+    uses: your-org/.github/.github/workflows/reusable-labeler.yml@main
+    with:
+      issue-body: ${{ github.event.issue.body }}
+      issue-number: ${{ github.event.issue.number }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # This job runs ONLY when a comment is created.
+  # It calls the reusable workflow responsible for deployments.
+  call-deployment:
+    if: github.event_name == 'issue_comment' && contains(github.event.issue.labels.*.name, 'deployment')
+    uses: your-org/.github/.github/workflows/reusable-deployment-logic.yml@main
+    with:
+      admin-team: 'code_admin' # Or 'frontend-admins', etc. specific to this repo
+      issue-number: ${{ github.event.issue.number }}
+      comment-body: ${{ github.event.comment.body }}
+      commenter-login: ${{ github.event.comment.user.login }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
