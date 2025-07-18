@@ -1,0 +1,213 @@
+name: Handle Deployment Requests
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  handle-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check if the issue has the "deployment" label
+      - name: Check deployment label
+        id: check_label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number
+            });
+            const hasLabel = issue.data.labels.some(label => label.name === 'deployment');
+            core.setOutput('has_label', hasLabel);
+
+      # Step 2: Exit if the issue is not a deployment issue
+      - name: Exit if not deployment issue
+        if: steps.check_label.outputs.has_label != 'true'
+        run: exit 0
+
+      # Step 3: Extract the comment body into an environment variable
+      - name: Extract comment body
+        id: extract_comment
+        run: echo "COMMENT_BODY=${{ github.event.comment.body }}" >> $GITHUB_ENV
+
+      # Step 4: Handle "Release to Stage" comment
+      - name: Check if stage already deployed
+        if: env.COMMENT_BODY == 'Release to Stage'
+        id: check_stage_deployed
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number
+            });
+            const hasLabel = issue.data.labels.some(label => label.name === 'stage-deployed');
+            core.setOutput('has_label', hasLabel);
+
+      - name: Exit if stage already deployed
+        if: env.COMMENT_BODY == 'Release to Stage' && steps.check_stage_deployed.outputs.has_label == 'true'
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -d '{"body": "Stage deployment already completed."}'
+          exit 0
+
+      - name: Extract release number for stage
+        if: env.COMMENT_BODY == 'Release to Stage' && steps.check_stage_deployed.outputs.has_label != 'true'
+        id: extract_release_stage
+        run: |
+          ISSUE_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }} | jq -r .body)
+          RELEASE_NUMBER=$(echo "$ISSUE_BODY" | grep "Release Number:" | sed 's/Release Number: //')
+          echo "RELEASE_NUMBER=$RELEASE_NUMBER" >> $GITHUB_ENV
+
+      - name: Trigger stage deployment
+        if: env.COMMENT_BODY == 'Release to Stage' && steps.check_stage_deployed.outputs.has_label != 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'hcc_deploy.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'stage',
+                release_number: '${{ env.RELEASE_NUMBER }}'
+              }
+            });
+
+      - name: Add stage-deployed label
+        if: env.COMMENT_BODY == 'Release to Stage' && steps.check_stage_deployed.outputs.has_label != 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              labels: ['stage-deployed']
+            });
+
+      # Step 5: Handle "Release to Prod" comment
+      - name: Check if stage deployed for prod
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        id: check_stage_for_prod
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number
+            });
+            const hasLabel = issue.data.labels.some(label => label.name === 'stage-deployed');
+            core.setOutput('has_label', hasLabel);
+
+      - name: Exit if stage not deployed for prod
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:') && steps.check_stage_for_prod.outputs.has_label != 'true'
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -d '{"body": "Cannot deploy to prod without first deploying to stage."}'
+          exit 1
+
+      - name: Check if user is in code_admin team
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        id: check_user
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const user = context.payload.comment.user.login;
+            const org = context.repo.owner;
+            const team = 'code-admin';
+            try {
+              const membership = await github.rest.teams.getMembershipForUserInOrg({
+                org: org,
+                team_slug: team,
+                username: user
+              });
+              core.setOutput('is_member', membership.data.state === 'active');
+            } catch (error) {
+              core.setOutput('is_member', false);
+            }
+
+      - name: Exit if user not authorized
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:') && steps.check_user.outputs.is_member != 'true'
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -d '{"body": "You are not authorized to deploy to prod. Only code_admin team members can approve."}'
+          exit 1
+
+      - name: Extract change ticket
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        id: extract_ticket
+        run: |
+          TICKET=$(echo "${{ env.COMMENT_BODY }}" | sed 's/Release to Prod, change ticket: //')
+          echo "CHANGE_TICKET=$TICKET" >> $GITHUB_ENV
+
+      - name: Validate change ticket
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        id: validate_ticket
+        run: |
+          # Placeholder for ServiceNow validation (replace with actual action or API call)
+          # Assuming a hypothetical action or script validates the ticket
+          echo "Validating ticket ${{ env.CHANGE_TICKET }} (mocked as valid)"
+          echo "is_valid=true" >> $GITHUB_OUTPUT
+        # In a real scenario, replace with:
+        # uses: some/servicenow-validate-action@v1
+        # with:
+        #   ticket: ${{ env.CHANGE_TICKET }}
+
+      - name: Exit if change ticket invalid
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:') && steps.validate_ticket.outputs.is_valid != 'true'
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+            -d '{"body": "Invalid change ticket: ${{ env.CHANGE_TICKET }}"}'
+          exit 1
+
+      - name: Extract release number for prod
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        id: extract_release_prod
+        run: |
+          ISSUE_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }} | jq -r .body)
+          RELEASE_NUMBER=$(echo "$ISSUE_BODY" | grep "Release Number:" | sed 's/Release Number: //')
+          echo "RELEASE_NUMBER=$RELEASE_NUMBER" >> $GITHUB_ENV
+
+      - name: Trigger prod deployment
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'hcc_deploy.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'prod',
+                release_number: '${{ env.RELEASE_NUMBER }}'
+              }
+            });
+
+      - name: Add prod-deployed label
+        if: startsWith(env.COMMENT_BODY, 'Release to Prod, change ticket:')
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+             Warsaw issue_number: context.payload.issue.number,
+              labels: ['prod-deployed']
+            });
