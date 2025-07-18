@@ -1,0 +1,108 @@
+# File: .github/workflows/reusable-deployment-logic.yml
+# This reusable workflow handles all comment-driven deployment commands.
+
+name: Reusable Deployment Logic
+
+on:
+  workflow_call:
+    inputs:
+      admin-team:
+        required: true
+        type: string
+      issue-number:
+        required: true
+        type: number
+      comment-body:
+        required: true
+        type: string
+      commenter-login:
+        required: true
+        type: string
+    secrets:
+      GH_TOKEN:
+        required: true
+
+jobs:
+  # Prepare all data needed for deployments
+  prepare-deployment:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.gather_info.outputs.release_tag }}
+      ticket_number: ${{ steps.gather_info.outputs.ticket_number }}
+      is_authorized: ${{ steps.gather_info.outputs.is_authorized }}
+    steps:
+      - name: Gather Info and Check Authorization
+        id: gather_info
+        run: |
+          # The logic for gathering labels, ticket numbers, and checking authorization
+          LABELS_JSON=$(gh api "repos/${{ github.repository }}/issues/${{ inputs.issue-number }}/labels")
+          RELEASE_TAG=$(echo "$LABELS_JSON" | jq -r '.[] | .name' | grep -oP 'release-\K.*' | head -n 1)
+          TICKET=""
+          if [[ "${{ inputs.comment-body }}" == *"change ticket: "* ]]; then
+            TICKET=$(echo "${{ inputs.comment-body }}" | grep -oP '(?<=change ticket: ).*' | tr -d '\r')
+          else
+            TICKET=$(echo "$LABELS_JSON" | jq -r '.[] | .name' | grep -oP 'change-ticket-\K.*' | head -n 1)
+          fi
+          IS_AUTHORIZED="false"
+          if gh api "orgs/${{ github.repository_owner }}/teams/${{ inputs.admin-team }}/members/${{ inputs.commenter-login }}" > /dev/null 2>&1; then
+            IS_AUTHORIZED="true"
+          fi
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          echo "ticket_number=${TICKET}" >> $GITHUB_OUTPUT
+          echo "is_authorized=${IS_AUTHORIZED}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  # Deploys to Staging
+  deploy-stage:
+    needs: prepare-deployment
+    if: inputs.comment-body == 'Release to Stage'
+    environment: stage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Stage Environment
+        run: |
+          # Logic for deploying to Stage
+          RELEASE_TAG="${{ needs.prepare-deployment.outputs.release_tag }}"
+          echo "Deploying release ${RELEASE_TAG} to Stage..."
+          # --- Your hcc_deploy action for STAGE goes here ---
+          gh issue comment ${{ inputs.issue-number }} --body "✅ **Success:** Deployment of **${RELEASE_TAG}** to **stage** is complete."
+          gh issue label ${{ inputs.issue-number }} "stage-deployed"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          
+  # Validates the ticket for Production
+  validate-change-ticket:
+    needs: prepare-deployment
+    if: startsWith(inputs.comment-body, 'Release to Prod')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authorize and Validate
+        run: |
+          # Logic for authorizing and validating the ticket
+          if [[ "${{ needs.prepare-deployment.outputs.is_authorized }}" != "true" ]]; then exit 1; fi
+          TICKET="${{ needs.prepare-deployment.outputs.ticket_number }}"
+          if [ -z "$TICKET" ]; then exit 1; fi
+          echo "Validating change ticket: ${TICKET}"
+          # --- Your ServiceNow validation action goes here ---
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  # Deploys to Production
+  deploy-to-prod:
+    needs: [prepare-deployment, validate-change-ticket]
+    if: always() && needs.validate-change-ticket.result == 'success'
+    environment: prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production Environment
+        run: |
+          # Logic for deploying to Production
+          RELEASE_TAG="${{ needs.prepare-deployment.outputs.release_tag }}"
+          TICKET_NUMBER="${{ needs.prepare-deployment.outputs.ticket_number }}"
+          echo "Deploying release ${RELEASE_TAG} to Production with ticket ${TICKET_NUMBER}..."
+          # --- Your hcc_deploy action for PROD goes here ---
+          gh issue comment ${{ inputs.issue-number }} --body "🚀 **Success:** Deployment of **${RELEASE_TAG}** to **production** with ticket **${TICKET_NUMBER}** is complete."
+          gh issue label ${{ inputs.issue-number }} "prod-deployed"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
