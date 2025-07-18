@@ -1,0 +1,71 @@
+name: '🚀 Release Deployment Workflow'
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  deploy-stage:
+    if: |
+      github.event.issue.title == '🚀 Release: [RELEASE_NUMBER]' &&
+      contains(github.event.comment.body, 'Release to Stage')
+    runs-on: ubuntu-latest
+    environment:
+      name: stage
+    steps:
+      - name: 'Get Release Number from Issue Body'
+        id: get_release
+        run: |
+          release_number=$(echo "${{ github.event.issue.body }}" | grep "Release Number" | awk -F '`' '{print $2}')
+          echo "::set-output name=release_tag::$release_number"
+
+      - name: 'Deploy to Staging'
+        uses: ./.github/actions/hcc_deploy # This should be your custom hcc_deploy action
+        with:
+          environment: 'stage'
+          docker_tag: ${{ steps.get_release.outputs.release_tag }}
+          # Add any other inputs your hcc_deploy action requires for staging
+
+  deploy-prod:
+    if: |
+      github.event.issue.title == '🚀 Release: [RELEASE_NUMBER]' &&
+      contains(github.event.comment.body, 'Release to Prod')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: 'Check for Admin Approval'
+        id: check_admin
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const adminTeams = ['code_admin'];
+            const actor = context.actor;
+            const { data: teams } = await github.rest.teams.listForAuthenticatedUser();
+            const userTeams = teams.map(team => team.slug);
+            const isAdmin = userTeams.some(team => adminTeams.includes(team));
+            if (!isAdmin) {
+              core.setFailed(`User @${actor} is not a member of the required 'code_admin' team.`);
+            }
+            console.log(`User @${actor} is authorized for production deployment.`);
+
+      - name: 'Get Release and Ticket Info from Comment'
+        id: get_info
+        run: |
+          release_number=$(echo "${{ github.event.issue.body }}" | grep "Release Number" | awk -F '`' '{print $2}')
+          echo "::set-output name=release_tag::$release_number"
+          change_ticket=$(echo "${{ github.event.comment.body }}" | grep -oP 'CHG[0-9]+')
+          echo "::set-output name=change_ticket::$change_ticket"
+
+      - name: 'Validate ServiceNow Ticket'
+        uses: your-org/servicenow-validate-action@v1 # Replace with your ServiceNow validation action
+        with:
+          ticket_number: ${{ steps.get_info.outputs.change_ticket }}
+          # Add any other inputs your ServiceNow action requires
+
+      - name: 'Deploy to Production'
+        uses: ./.github/actions/hcc_deploy
+        with:
+          environment: 'prod'
+          docker_tag: ${{ steps.get_info.outputs.release_tag }}
+          # Add any other inputs your hcc_deploy action requires for production
