@@ -1,0 +1,148 @@
+name: Handle Deployment Requests
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+
+jobs:
+  # Job 1: Runs ONLY when a new issue is opened to add initial labels.
+  add_labels_on_open:
+    if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'deployment')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract details from issue body
+        id: extract_details
+        run: |
+          # Extracts details and uses job outputs to pass them to the next step.
+          RELEASE_NUMBER=$(echo "${{ github.event.issue.body }}" | grep -oP '(?<=Release Number: ).*' | tr -d '\r')
+          CHANGE_TICKET=$(echo "${{ github.event.issue.body }}" | grep -oP '(?<=Change Ticket Number: ).*' | tr -d '\r')
+
+          if [ -z "$RELEASE_NUMBER" ]; then
+            gh issue comment ${{ github.event.issue.number }} --body "❌ **Error:** A 'Release Number' must be provided in the issue description."
+            exit 1
+          fi
+          echo "release_number=${RELEASE_NUMBER}" >> $GITHUB_OUTPUT
+          echo "change_ticket=${CHANGE_TICKET}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add release and change ticket labels
+        # This single step adds one or both labels as needed.
+        uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          labels: |
+            release-${{ steps.extract_details.outputs.release_number }}
+            ${{ steps.extract_details.outputs.change_ticket != '' && format('change-ticket-{0}', steps.extract_details.outputs.change_ticket) || '' }}
+
+  # Job 2: Runs on a COMMENT to prepare data for Stage or Prod deployments.
+  prepare-deployment:
+    # This job only runs on comments on issues with the 'deployment' label.
+    if: github.event_name == 'issue_comment' && contains(github.event.issue.labels.*.name, 'deployment')
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.gather_info.outputs.release_tag }}
+      ticket_number: ${{ steps.gather_info.outputs.ticket_number }}
+      is_authorized: ${{ steps.gather_info.outputs.is_authorized }}
+    steps:
+      - name: Gather Info and Check Authorization
+        id: gather_info
+        run: |
+          # 1. GATHER ALL LABELS ONCE
+          LABELS_JSON=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels")
+          
+          # 2. EXTRACT RELEASE TAG
+          RELEASE_TAG=$(echo "$LABELS_JSON" | jq -r '.[] | .name' | grep -oP 'release-\K.*' | head -n 1)
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+          
+          # 3. EXTRACT TICKET NUMBER (from comment or label)
+          TICKET=""
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          if [[ $COMMENT_BODY == *"change ticket: "* ]]; then
+            TICKET=$(echo "$COMMENT_BODY" | grep -oP '(?<=change ticket: ).*' | tr -d '\r')
+          else
+            TICKET=$(echo "$LABELS_JSON" | jq -r '.[] | .name' | grep -oP 'change-ticket-\K.*' | head -n 1)
+          fi
+          echo "ticket_number=${TICKET}" >> $GITHUB_OUTPUT
+
+          # 4. CHECK AUTHORIZATION (CRITICAL STEP)
+          IS_AUTHORIZED="false"
+          if gh api "orgs/${{ github.repository_owner }}/teams/code_admin/members/${{ github.event.comment.user.login }}" > /dev/null 2>&1; then
+            IS_AUTHORIZED="true"
+          fi
+          echo "is_authorized=${IS_AUTHORIZED}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job 3: Deploys to Staging
+  deploy-stage:
+    needs: prepare-deployment
+    if: github.event.comment.body == 'Release to Stage'
+    environment: stage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Stage Environment
+        run: |
+          RELEASE_TAG="${{ needs.prepare-deployment.outputs.release_tag }}"
+          if [ -z "$RELEASE_TAG" ]; then
+            gh issue comment ${{ github.event.issue.number }} --body "❌ **Error:** Could not find release label."
+            exit 1
+          fi
+          echo "Deploying release ${RELEASE_TAG} to Stage..."
+          # --- Your hcc_deploy action for STAGE goes here ---
+          gh issue comment ${{ github.event.issue.number }} --body "✅ **Success:** Deployment of **${RELEASE_TAG}** to **stage** is complete."
+          gh issue label ${{ github.event.issue.number }} "stage-deployed"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  # Job 4: Validates the ticket for Production
+  validate-change-ticket:
+    needs: prepare-deployment
+    if: startsWith(github.event.comment.body, 'Release to Prod')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authorize and Validate
+        run: |
+          # Check authorization from the prepare job
+          if [[ "${{ needs.prepare-deployment.outputs.is_authorized }}" != "true" ]]; then
+            gh issue comment ${{ github.event.issue.number }} --body "⛔ **Access Denied:** You are not a member of the **code_admin** team."
+            exit 1
+          fi
+
+          # Check for ticket
+          TICKET="${{ needs.prepare-deployment.outputs.ticket_number }}"
+          if [ -z "$TICKET" ]; then
+            gh issue comment ${{ github.event.issue.number }} --body "❌ **Error:** A change ticket is required for production deployment."
+            exit 1
+          fi
+          
+          echo "Validating change ticket: ${TICKET}"
+          # --- Your ServiceNow validation action goes here ---
+          VALID=true # Placeholder
+          if [ "$VALID" != "true" ]; then
+            gh issue comment ${{ github.event.issue.number }} --body "❌ **Validation Failed:** Change ticket **${TICKET}** is invalid."
+            exit 1
+          fi
+          gh issue comment ${{ github.event.issue.number }} --body "✔️ **Validation Successful:** Change ticket **${TICKET}** is valid."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job 5: Deploys to Production
+  deploy-to-prod:
+    needs: [prepare-deployment, validate-change-ticket]
+    if: always() && needs.validate-change-ticket.result == 'success'
+    environment: prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production Environment
+        run: |
+          RELEASE_TAG="${{ needs.prepare-deployment.outputs.release_tag }}"
+          TICKET_NUMBER="${{ needs.prepare-deployment.outputs.ticket_number }}"
+          echo "Deploying release ${RELEASE_TAG} to Production with ticket ${TICKET_NUMBER}..."
+          # --- Your hcc_deploy action for PROD goes here ---
+          gh issue comment ${{ github.event.issue.number }} --body "🚀 **Success:** Deployment of **${RELEASE_TAG}** to **production** with change ticket **${TICKET_NUMBER}** is complete."
+          gh issue label ${{ github.event.issue.number }} "prod-deployed"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
