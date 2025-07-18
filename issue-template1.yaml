@@ -1,0 +1,41 @@
+name: Deployment Request
+description: Request a deployment to stage or prod
+title: "Deployment Request"
+labels: ["deployment"]
+body:
+  - type: input
+    id: release_number
+    attributes:
+      label: Release Number
+      description: Please provide the Docker tag to be deployed.
+      placeholder: e.g., v1.2.3
+    validations:
+      required: true
+  - type: input
+    id: change_ticket
+    attributes:
+      label: Change Ticket Number (Optional)
+      description: If known, provide the change ticket number (e.g., ABC-123). You can also add it later via a label or comment for prod deployments.
+      placeholder: e.g., ABC-123
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        ## Deployment Instructions
+
+        Once this issue is created, you can trigger deployments by adding comments:
+
+        - For stage deployment: Comment "Release to Stage"  
+          This will trigger the `hcc_deploy` workflow with stage inputs.
+
+        - For prod deployment: If you are a member of the `code_admin` group, comment "Release to Prod". Then, provide the change ticket number in one of these ways:  
+          1. Add a label in the format `change-ticket: ABC-123`.  
+          2. Post a separate comment like "Change ticket: ABC-123".  
+          3. Use the "Change Ticket Number" field above (if provided).  
+          The change ticket will be validated via ServiceNow, and if valid and approved by a `code_admin` member, the `hcc_deploy` workflow will trigger with prod inputs.
+
+        **Note**: 
+        - Only members of the `code_admin` group can trigger prod deployments.
+        - Do not create sub-issues for deployment requests.
+        - When the deployment is complete, close this issue with a comment indicating the outcome (e.g., "Deployment to prod completed successfully").
